@@ -35,24 +35,48 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
     if (!data) {
       return fallback;
     }
+    
+    // Handle string responses
     if (typeof data === "string") {
       return data;
     }
+    
+    // Handle detail field (common in DRF responses)
     if (data.detail) {
       return data.detail;
     }
+    
+    // Handle non_field_errors (common in DRF serializer validation)
     if (Array.isArray(data.non_field_errors) && data.non_field_errors.length) {
       return data.non_field_errors.join(" ");
     }
-    const fieldMessage = Object.entries(data)
-      .map(([field, value]) => {
-        if (Array.isArray(value)) {
-          return `${field}: ${value.join(" ")}`;
-        }
-        return `${field}: ${String(value)}`;
-      })
-      .join(" | ");
-    return fieldMessage || fallback;
+    
+    // Handle field validation errors
+    if (typeof data === "object") {
+      const fieldErrors = Object.entries(data)
+        .map(([field, value]) => {
+          if (Array.isArray(value)) {
+            return `${field}: ${value.join(" ")}`;
+          }
+          return `${field}: ${String(value)}`;
+        })
+        .join(" | ");
+      
+      if (fieldErrors) {
+        return fieldErrors;
+      }
+    }
+    
+    // Fallback to stringifying the entire response if it's an object
+    if (typeof data === "object") {
+      try {
+        return JSON.stringify(data);
+      } catch {
+        return fallback;
+      }
+    }
+    
+    return fallback;
   };
 
   const handleRegister = async (event) => {

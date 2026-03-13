@@ -6,6 +6,20 @@ export const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Ensure error.response exists for consistent error handling
+    if (!error.response) {
+      error.response = {
+        data: { detail: error.message || "Network error occurred" }
+      };
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const withAdminKey = (adminKey) => ({
   headers: {
     "X-Admin-Key": adminKey,
