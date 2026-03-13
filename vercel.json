@@ -4,7 +4,7 @@
     {
       "src": "backend/config/wsgi.py",
       "use": "@vercel/python",
-      "config": { 
+      "config": {
         "maxLambdaSize": "15mb",
         "runtime": "python3.14"
       }
@@ -13,14 +13,24 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "frontend/build"
+        "distDir": "frontend/build",
+        "buildCommand": "cd frontend && npm install && npx vite build"
       }
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/backend/config/wsgi.py" },
-    { "src": "/static/(.*)", "dest": "/backend/static/$1" },
-    { "src": "/(.*)", "dest": "/frontend/index.html" }
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/config/wsgi.py"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/backend/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/index.html"
+    }
   ],
   "env": {
     "DJANGO_SETTINGS_MODULE": "config.settings",
