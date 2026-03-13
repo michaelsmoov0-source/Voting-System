@@ -7,7 +7,7 @@
       "config": {
         "maxLambdaSize": "15mb",
         "runtime": "python3.14",
-        "requirementsFile": "backend/requirements.txt"
+        "requirementsFile": "requirements.txt"
       }
     },
     {
@@ -33,7 +33,7 @@
     }
   ],
   "env": {
-    "DJANGO_SETTINGS_MODULE": "config.settings",
+    "DJANGO_SETTINGS_MODULE": "backend.config.settings",
     "PYTHON_VERSION": "3.14",
     "VITE_API_BASE_URL": "/api"
   }

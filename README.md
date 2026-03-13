@@ -31,3 +31,12 @@ Stack:
 - You can run manual cleanup with `python manage.py purge_candidate_data`.
 - Elections support optional vote limit (`max_votes`) and optional access password (`access_password`).
 - Candidate records support `profile_image_url` and `description`.
+
+
+
+
+
+
+
+
+sk-ws-01-TJ64zvVTQG7Rdk2IR32bheN1gx58qsAX-zGUBuKMaEAt7Gg35K0KbBGT8Da03r2stz58Rh9cN492ZPuTvDFW0TK_DvIKVA
