@@ -1,0 +1,41 @@
+from django.urls import path
+
+from .views import (
+    AdminDashboardAPIView,
+    CandidateCreateAPIView,
+    CandidateDetailAdminAPIView,
+    CandidateImageUploadAPIView,
+    CandidateListAPIView,
+    CastVoteAPIView,
+    ElectionCreateAPIView,
+    ElectionDetailAdminAPIView,
+    ElectionListAPIView,
+    ElectionResultsAPIView,
+    LoginAPIView,
+    MFAReverificationAPIView,
+    MFASetupAPIView,
+    MFASetupConfirmAPIView,
+    MFADebugCodeAPIView,
+    MFAVerifyLoginAPIView,
+    RegisterAPIView,
+)
+
+urlpatterns = [
+    path("auth/register/", RegisterAPIView.as_view(), name="auth-register"),
+    path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
+    path("auth/mfa/verify-login/", MFAVerifyLoginAPIView.as_view(), name="auth-mfa-verify-login"),
+    path("auth/mfa/reverify/", MFAReverificationAPIView.as_view(), name="auth-mfa-reverify"),
+    path("auth/mfa/setup/", MFASetupAPIView.as_view(), name="auth-mfa-setup"),
+    path("auth/mfa/confirm/", MFASetupConfirmAPIView.as_view(), name="auth-mfa-confirm"),
+    path("auth/mfa/debug-code/", MFADebugCodeAPIView.as_view(), name="auth-mfa-debug-code"),
+    path("elections/", ElectionListAPIView.as_view(), name="election-list"),
+    path("elections/create/", ElectionCreateAPIView.as_view(), name="election-create"),
+    path("elections/<int:pk>/", ElectionDetailAdminAPIView.as_view(), name="election-detail-admin"),
+    path("elections/<int:election_id>/results/", ElectionResultsAPIView.as_view(), name="election-results"),
+    path("candidates/", CandidateListAPIView.as_view(), name="candidate-list"),
+    path("candidates/create/", CandidateCreateAPIView.as_view(), name="candidate-create"),
+    path("candidates/upload-photo/", CandidateImageUploadAPIView.as_view(), name="candidate-upload-photo"),
+    path("candidates/<int:pk>/", CandidateDetailAdminAPIView.as_view(), name="candidate-detail-admin"),
+    path("votes/cast/", CastVoteAPIView.as_view(), name="cast-vote"),
+    path("admin/dashboard/", AdminDashboardAPIView.as_view(), name="admin-dashboard"),
+]
