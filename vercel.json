@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/config/wsgi.py",
+      "use": "@vercel/python",
+      "config": { 
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.14"
+      }
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "frontend/build"
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/backend/config/wsgi.py" },
+    { "src": "/static/(.*)", "dest": "/backend/static/$1" },
+    { "src": "/(.*)", "dest": "/frontend/index.html" }
+  ],
+  "env": {
+    "DJANGO_SETTINGS_MODULE": "config.settings",
+    "PYTHON_VERSION": "3.14",
+    "VITE_API_BASE_URL": "/api"
+  }
+}

@@ -15,6 +15,8 @@ if os.getenv("VERCEL"):
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # For monorepo, we need to allow the same origin
+    CORS_ALLOWED_ORIGINS = ["https://*.vercel.app", "http://localhost:3000", "http://localhost:5173"]
 else:
     DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
     ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if host.strip()]
