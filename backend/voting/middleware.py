@@ -9,9 +9,14 @@ class SimpleCORSMiddleware:
         self.get_response = get_response
         self.allowed_origins = [
             origin.strip()
-            for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+            for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
             if origin.strip()
         ]
+        # Add Vercel frontend URL in production
+        if os.getenv("VERCEL"):
+            frontend_url = os.getenv("FRONTEND_URL", "")
+            if frontend_url and frontend_url not in self.allowed_origins:
+                self.allowed_origins.append(frontend_url)
 
     def __call__(self, request):
         origin = request.headers.get("Origin")
@@ -19,6 +24,9 @@ class SimpleCORSMiddleware:
         if not origin_allowed and origin and settings.DEBUG and origin.startswith("http://localhost:"):
             origin_allowed = True
         if not origin_allowed and origin and settings.DEBUG and origin.startswith("http://127.0.0.1:"):
+            origin_allowed = True
+        # Allow Vercel frontend in production
+        if not origin_allowed and origin and os.getenv("VERCEL") and origin.endswith(".vercel.app"):
             origin_allowed = True
 
         if request.method == "OPTIONS":
