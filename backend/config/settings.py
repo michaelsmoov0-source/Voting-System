@@ -11,7 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Production settings for Vercel
 if os.getenv("VERCEL"):
     DEBUG = False
-    ALLOWED_HOSTS = ["*.vercel.app", "localhost", "127.0.0.1"]
+    ALLOWED_HOSTS = [
+        "voting-system-tbti.vercel.app",
+        "*.vercel.app", 
+        "localhost", 
+        "127.0.0.1"
+    ]
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
