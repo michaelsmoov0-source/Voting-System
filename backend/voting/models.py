@@ -43,6 +43,10 @@ class Election(models.Model):
     def requires_password(self) -> bool:
         return bool(self.access_password_hash)
 
+    @property
+    def encryption_public_key(self) -> str:
+        return self.public_key_pem
+
     def set_access_password(self, raw_password: str):
         if raw_password:
             self.access_password_hash = make_password(raw_password)

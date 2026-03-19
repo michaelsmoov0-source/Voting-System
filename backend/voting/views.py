@@ -387,8 +387,6 @@ class MFADebugCodeAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not settings.DEBUG:
-            return Response({"detail": "Debug MFA endpoint is disabled."}, status=status.HTTP_403_FORBIDDEN)
         if not request.user.is_staff:
             return Response({"detail": "Only admin users can access debug MFA code."}, status=status.HTTP_403_FORBIDDEN)
         try:
