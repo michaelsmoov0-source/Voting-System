@@ -8,6 +8,9 @@ import {
   setupAdminMFA,
   verifyAdminMFA,
 } from "../api/voting";
+import Loader from "./Loader";
+import ButtonLoader from "./ButtonLoader";
+import LoadingOverlay from "./LoadingOverlay";
 
 const AuthPage = ({ onAuthenticated, notice = "" }) => {
   const [mode, setMode] = useState("login");
@@ -20,6 +23,13 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
   const [attemptsRemaining, setAttemptsRemaining] = useState(null);
   const [reverificationRequired, setReverificationRequired] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  // Loading states
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
+  const [isMfaLoading, setIsMfaLoading] = useState(false);
+  const [isSetupLoading, setIsSetupLoading] = useState(false);
+  const [globalLoading, setGlobalLoading] = useState(false);
 
   const [loginPayload, setLoginPayload] = useState({ 
     user_id: "", 
@@ -87,18 +97,22 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
   const handleRegister = async (event) => {
     event.preventDefault();
     setStatus("");
+    setIsRegisterLoading(true);
     try {
       const data = await registerUser(registerPayload);
       onAuthenticated(data);
       setStatus("Registration successful.");
     } catch (error) {
       setStatus(extractErrorMessage(error, "Registration failed."));
+    } finally {
+      setIsRegisterLoading(false);
     }
   };
 
   const handleLogin = async (event) => {
     event.preventDefault();
     setStatus("");
+    setIsLoginLoading(true);
     try {
       const data = await loginUser(loginPayload);
       if (data.mfa_required) {
@@ -118,6 +132,8 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
         return;
       }
       setStatus(extractErrorMessage(error, "Login failed."));
+    } finally {
+      setIsLoginLoading(false);
     }
   };
 
@@ -126,6 +142,7 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
     setStatus("");
     setAttemptsRemaining(null);
     setReverificationRequired(false);
+    setIsMfaLoading(true);
     
     try {
       const data = await verifyAdminMFA({ preauth_token: preauthToken, code: mfaCode });
@@ -143,12 +160,15 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
       } else {
         setStatus(extractErrorMessage(error, "MFA verification failed."));
       }
+    } finally {
+      setIsMfaLoading(false);
     }
   };
 
   const handleReverification = async () => {
     setStatus("");
     setShowConfirmDialog(false);
+    setGlobalLoading(true);
     
     try {
       const data = await reverifyAdminMFA({ preauth_token: preauthToken });
@@ -164,6 +184,8 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
       }
     } catch (error) {
       setStatus(extractErrorMessage(error, "Reverification failed."));
+    } finally {
+      setGlobalLoading(false);
     }
   };
 
@@ -177,6 +199,7 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
   const handleMfaSetup = async () => {
     setStatus("");
     setDebugCode("");
+    setIsSetupLoading(true);
     try {
       const data = await setupAdminMFA(setupToken);
       
@@ -193,12 +216,15 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
       }
     } catch (error) {
       setStatus(extractErrorMessage(error, "MFA setup failed."));
+    } finally {
+      setIsSetupLoading(false);
     }
   };
 
   const handleMfaConfirm = async (event) => {
     event.preventDefault();
     setStatus("");
+    setIsMfaLoading(true);
     try {
       await confirmAdminMFA(setupToken, mfaCode);
       setMode("login");
@@ -206,11 +232,14 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
       setStatus("MFA enabled. Now login again.");
     } catch (error) {
       setStatus(extractErrorMessage(error, "MFA confirmation failed."));
+    } finally {
+      setIsMfaLoading(false);
     }
   };
 
   const handleFetchDebugCode = async () => {
     setStatus("");
+    setIsSetupLoading(true);
     try {
       const data = await fetchDebugMfaCode(setupToken, mfaSecretInput);
       if (data.debug_current_code) {
@@ -220,17 +249,21 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
       }
     } catch (error) {
       setStatus(extractErrorMessage(error, "Could not fetch debug MFA code."));
+    } finally {
+      setIsSetupLoading(false);
     }
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-4 text-xl font-semibold text-slate-800">Account Access</h2>
-      {(notice || status) && (
-        <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">
-          {notice || status}
-        </p>
-      )}
+    <>
+      <LoadingOverlay show={globalLoading} text="Processing..." />
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-xl font-semibold text-slate-800">Account Access</h2>
+        {(notice || status) && (
+          <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">
+            {notice || status}
+          </p>
+        )}
 
       {(mode === "login" || mode === "register") && (
         <div className="mb-4 flex gap-2">
@@ -270,9 +303,14 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
             value={loginPayload.password}
             onChange={(e) => setLoginPayload((prev) => ({ ...prev, password: e.target.value }))}
           />
-          <button className="rounded-lg bg-brand-700 px-4 py-2 text-white hover:bg-brand-500" type="submit">
+          <ButtonLoader 
+            loading={isLoginLoading}
+            loadingText="Logging in..."
+            type="submit"
+            className="w-full"
+          >
             Login
-          </button>
+          </ButtonLoader>
         </form>
       )}
 
@@ -320,9 +358,14 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
               onChange={(e) => setRegisterPayload((prev) => ({ ...prev, admin_invite_key: e.target.value }))}
             />
           )}
-          <button className="rounded-lg bg-brand-700 px-4 py-2 text-white hover:bg-brand-500" type="submit">
+          <ButtonLoader 
+            loading={isRegisterLoading}
+            loadingText="Registering..."
+            type="submit"
+            className="w-full"
+          >
             Register
-          </button>
+          </ButtonLoader>
         </form>
       )}
 
@@ -350,13 +393,15 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
                   {attemptsRemaining} attempts remaining
                 </div>
               )}
-              <button 
-                className="rounded-lg bg-brand-700 px-4 py-2 text-white hover:bg-brand-500" 
+              <ButtonLoader 
+                loading={isMfaLoading}
+                loadingText="Verifying..."
                 type="submit"
                 disabled={reverificationRequired}
+                className="w-full"
               >
                 Verify MFA
-              </button>
+              </ButtonLoader>
             </form>
           )}
           
@@ -399,22 +444,29 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
 
       {mode === "mfa-setup" && (
         <div className="grid gap-3">
-          <button className="rounded-lg bg-slate-800 px-4 py-2 text-white hover:bg-slate-700" onClick={handleMfaSetup}>
+          <ButtonLoader 
+            loading={isSetupLoading}
+            loadingText="Sending..."
+            onClick={handleMfaSetup}
+            className="w-full"
+          >
             Send MFA Secret to Email
-          </button>
+          </ButtonLoader>
           <input
             className="rounded-lg border border-slate-300 px-3 py-2"
             placeholder="Paste MFA secret from email"
             value={mfaSecretInput}
             onChange={(e) => setMfaSecretInput(e.target.value)}
           />
-          <button
-            className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          <ButtonLoader 
+            loading={isSetupLoading}
+            loadingText="Fetching..."
             onClick={handleFetchDebugCode}
             disabled={!mfaSecretInput.trim()}
+            className="w-full"
           >
             Fetch Debug 6-Digit Code
-          </button>
+          </ButtonLoader>
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
             Enter the MFA secret from email first. If secret is wrong, debug code is blocked.
           </div>
@@ -439,13 +491,19 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
               onChange={(e) => setMfaCode(normalizeSixDigitCode(e.target.value))}
               onPaste={handleCodePaste}
             />
-            <button className="rounded-lg bg-brand-700 px-4 py-2 text-white hover:bg-brand-500" type="submit">
+            <ButtonLoader 
+              loading={isMfaLoading}
+              loadingText="Confirming..."
+              type="submit"
+              className="w-full"
+            >
               Confirm MFA Setup
-            </button>
+            </ButtonLoader>
           </form>
         </div>
       )}
     </div>
+    </>
   );
 };
 
