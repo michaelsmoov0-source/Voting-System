@@ -67,6 +67,7 @@ class EncryptedVoteCreateSerializer(serializers.Serializer):
     encrypted_ballot = serializers.CharField()
     voter_identifier = serializers.CharField(max_length=120)
     election_password = serializers.CharField(required=False, allow_blank=True)
+    is_anonymous = serializers.BooleanField(default=False)
 
     def validate(self, attrs):
         try:

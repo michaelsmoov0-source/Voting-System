@@ -78,6 +78,7 @@ const VoterPage = () => {
   const [electionPassword, setElectionPassword] = useState("");
   const [status, setStatus] = useState("");
   const [results, setResults] = useState(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const openElections = useMemo(
     () => elections.filter((election) => election.status === "open"),
@@ -155,6 +156,7 @@ const VoterPage = () => {
         }),
         voter_identifier: voterId,
         election_password: electionPassword,
+        is_anonymous: isAnonymous,
       });
       setStatus(
         receipt.receipt_code

@@ -1,11 +1,16 @@
 import hashlib
 import json
 import secrets
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import base64
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
 from .crypto_utils import generate_rsa_keypair_pem
 
@@ -76,7 +81,9 @@ class Vote(models.Model):
     election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name="votes")
     candidate = models.ForeignKey(Candidate, on_delete=models.SET_NULL, related_name="votes", null=True, blank=True)
     voter_hash = models.CharField(max_length=64)
+    voter_identifier = models.CharField(max_length=120, blank=True)  # Store original identifier for admin reference
     encrypted_ballot = models.TextField()
+    is_anonymous = models.BooleanField(default=False)
     receipt_code = models.CharField(max_length=64, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -131,7 +138,58 @@ class ElectionResultSnapshot(models.Model):
     election = models.OneToOneField(Election, on_delete=models.CASCADE, related_name="result_snapshot")
     total_votes = models.PositiveIntegerField(default=0)
     results_json = models.JSONField(default=list)
+    encrypted_results = models.TextField(blank=True)  # Encrypted version of results_json
+    encryption_key = models.CharField(max_length=255, blank=True)  # Encrypted key
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"Snapshot for {self.election.title}"
+    
+    @classmethod
+    def generate_encryption_key(cls, election_id: str) -> tuple:
+        """Generate encryption key based on election ID and secret"""
+        password = f"election_results_{election_id}_{settings.SECRET_KEY}".encode()
+        salt = hashlib.sha256(f"salt_{election_id}".encode()).digest()
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(password))
+        return key
+    
+    def encrypt_results(self, results_data: list) -> str:
+        """Encrypt the results JSON data"""
+        key = self.generate_encryption_key(str(self.election.id))
+        fernet = Fernet(key)
+        
+        # Convert to JSON string and encrypt
+        json_data = json.dumps(results_data)
+        encrypted_data = fernet.encrypt(json_data.encode())
+        
+        # Store encrypted key (for demonstration - in production, use key management service)
+        encrypted_key = base64.b64encode(key).decode()
+        
+        self.encrypted_results = base64.b64encode(encrypted_data).decode()
+        self.encryption_key = encrypted_key
+        self.save()
+        
+        return self.encrypted_results
+    
+    def decrypt_results(self) -> list:
+        """Decrypt the results JSON data"""
+        if not self.encrypted_results or not self.encryption_key:
+            return self.results_json  # Fallback to unencrypted
+        
+        try:
+            key = base64.b64decode(self.encryption_key.encode())
+            fernet = Fernet(key)
+            
+            encrypted_data = base64.b64decode(self.encrypted_results.encode())
+            decrypted_data = fernet.decrypt(encrypted_data).decode()
+            
+            return json.loads(decrypted_data)
+        except Exception:
+            # If decryption fails, return unencrypted data
+            return self.results_json

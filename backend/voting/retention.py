@@ -37,10 +37,14 @@ def purge_expired_candidate_data() -> int:
             for candidate in candidates
         ]
         total_votes = sum(item["vote_count"] for item in results)
-        ElectionResultSnapshot.objects.update_or_create(
+        snapshot, created = ElectionResultSnapshot.objects.update_or_create(
             election=election,
             defaults={"total_votes": total_votes, "results_json": results},
         )
+        
+        # Encrypt the results if encryption is enabled
+        if getattr(settings, "ENCRYPT_ELECTION_RESULTS", True):
+            snapshot.encrypt_results(results)
 
         for candidate in candidates:
             try:

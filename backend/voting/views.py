@@ -493,11 +493,22 @@ class CastVoteAPIView(APIView):
         election = serializer.validated_data["election"]
         voter_hash = serializer.validated_data["voter_hash"]
         encrypted_ballot = serializer.validated_data["encrypted_ballot"]
+        is_anonymous = serializer.validated_data.get("is_anonymous", False)
+        voter_identifier = serializer.validated_data["voter_identifier"]
 
         queue_encrypted_vote(election=election, voter_hash=voter_hash, encrypted_ballot=encrypted_ballot)
         flush_mixed_votes(election.id)
 
         vote = Vote.objects.filter(election=election, voter_hash=voter_hash).first()
+        if vote:
+            # Update vote with anonymous preference and identifier
+            vote.is_anonymous = is_anonymous
+            if not is_anonymous:
+                vote.voter_identifier = voter_identifier
+            else:
+                vote.voter_identifier = ""  # Clear identifier if anonymous
+            vote.save(update_fields=["is_anonymous", "voter_identifier"])
+
         if not vote:
             return Response({"detail": "Vote accepted into mix-net queue."}, status=status.HTTP_202_ACCEPTED)
 
@@ -517,11 +528,14 @@ class ElectionResultsAPIView(APIView):
 
         if election.candidates_purged_at and hasattr(election, "result_snapshot"):
             snapshot = election.result_snapshot
+            # Use decrypted results if available, fallback to unencrypted
+            results_data = snapshot.decrypt_results()
             payload = {
                 "election_id": election.id,
                 "election_title": election.title,
                 "total_votes": snapshot.total_votes,
-                "results": snapshot.results_json,
+                "results": results_data,
+                "encrypted": bool(snapshot.encrypted_results),
             }
             result_serializer = ElectionResultSerializer(payload)
             return Response(result_serializer.data)
