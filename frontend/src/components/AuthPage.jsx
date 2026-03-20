@@ -21,9 +21,14 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
   const [reverificationRequired, setReverificationRequired] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const [loginPayload, setLoginPayload] = useState({ username: "", password: "" });
+  const [loginPayload, setLoginPayload] = useState({ 
+    user_id: "", 
+    matric_number: "", 
+    password: "" 
+  });
   const [registerPayload, setRegisterPayload] = useState({
-    username: "",
+    user_id: "",
+    matric_number: "",
     email: "",
     password: "",
     role: "voter",
@@ -248,9 +253,15 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
         <form className="grid gap-3" onSubmit={handleLogin}>
           <input
             className="rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="Username"
-            value={loginPayload.username}
-            onChange={(e) => setLoginPayload((prev) => ({ ...prev, username: e.target.value }))}
+            placeholder="User ID (optional)"
+            value={loginPayload.user_id}
+            onChange={(e) => setLoginPayload((prev) => ({ ...prev, user_id: e.target.value }))}
+          />
+          <input
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="Matric Number (optional)"
+            value={loginPayload.matric_number}
+            onChange={(e) => setLoginPayload((prev) => ({ ...prev, matric_number: e.target.value }))}
           />
           <input
             type="password"
@@ -269,9 +280,15 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
         <form className="grid gap-3" onSubmit={handleRegister}>
           <input
             className="rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="Username"
-            value={registerPayload.username}
-            onChange={(e) => setRegisterPayload((prev) => ({ ...prev, username: e.target.value }))}
+            placeholder="User ID (optional)"
+            value={registerPayload.user_id}
+            onChange={(e) => setRegisterPayload((prev) => ({ ...prev, user_id: e.target.value }))}
+          />
+          <input
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="Matric Number (optional)"
+            value={registerPayload.matric_number}
+            onChange={(e) => setRegisterPayload((prev) => ({ ...prev, matric_number: e.target.value }))}
           />
           <input
             className="rounded-lg border border-slate-300 px-3 py-2"

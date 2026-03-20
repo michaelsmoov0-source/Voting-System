@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .mixnet import flush_mixed_votes, queue_encrypted_vote
-from .models import AdminMFA, Candidate, Election, MFAFailedAttempt, Vote
+from .models import AdminMFA, Candidate, Election, MFAFailedAttempt, UserIP, Vote, VoterRegistration
 from .permissions import IsAdminUserOrAPIKey
 from .retention import purge_expired_candidate_data
 from .serializers import (
@@ -28,6 +28,7 @@ from .serializers import (
     MFAVerifySerializer,
     RegisterSerializer,
     VoteReceiptSerializer,
+    VoterRegistrationSerializer,
 )
 from .storage import upload_candidate_image
 
@@ -49,14 +50,43 @@ class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        # Get client IP address
+        client_ip = self.get_client_ip(request)
+        
+        # Check if IP already has an account using encrypted IP
+        if UserIP.ip_exists(client_ip):
+            return Response(
+                {"detail": "Only one account per IP address is allowed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        
+        # Store encrypted IP address
+        encrypted_ip = UserIP.encrypt_ip(client_ip)
+        ip_hash = UserIP.get_ip_hash(client_ip)
+        UserIP.objects.create(
+            user=user,
+            encrypted_ip=encrypted_ip,
+            ip_hash=ip_hash
+        )
+        
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
             {"token": token.key, "username": user.username, "is_admin": user.is_staff},
             status=status.HTTP_201_CREATED,
         )
+    
+    def get_client_ip(self, request):
+        """Get the client's IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -494,7 +524,7 @@ class CastVoteAPIView(APIView):
         voter_hash = serializer.validated_data["voter_hash"]
         encrypted_ballot = serializer.validated_data["encrypted_ballot"]
         is_anonymous = serializer.validated_data.get("is_anonymous", False)
-        voter_identifier = serializer.validated_data["voter_identifier"]
+        primary_identifier = serializer.validated_data["primary_identifier"]
 
         queue_encrypted_vote(election=election, voter_hash=voter_hash, encrypted_ballot=encrypted_ballot)
         flush_mixed_votes(election.id)
@@ -504,7 +534,7 @@ class CastVoteAPIView(APIView):
             # Update vote with anonymous preference and identifier
             vote.is_anonymous = is_anonymous
             if not is_anonymous:
-                vote.voter_identifier = voter_identifier
+                vote.voter_identifier = primary_identifier
             else:
                 vote.voter_identifier = ""  # Clear identifier if anonymous
             vote.save(update_fields=["is_anonymous", "voter_identifier"])
@@ -514,6 +544,86 @@ class CastVoteAPIView(APIView):
 
         receipt = VoteReceiptSerializer(vote)
         return Response(receipt.data, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class VoterRegistrationAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Register a voter for a specific election or group"""
+        serializer = VoterRegistrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        election = serializer.validated_data["election"]
+        user_id = serializer.validated_data.get("user_id", "").strip()
+        matric_number = serializer.validated_data.get("matric_number", "").strip()
+        
+        # Use primary identifier
+        primary_identifier = user_id or matric_number
+        
+        # Check if registration period is open
+        if election.registration_starts_at and election.registration_ends_at:
+            if not election.is_registration_open:
+                return Response(
+                    {"detail": "Registration period is closed for this election."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Check voter filter pattern
+        if not election.user_can_vote(primary_identifier, matric_number):
+            return Response(
+                {"detail": "You are not eligible to register for this election based on the voter filter criteria."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Handle group registration
+        if election.election_group:
+            # Register for all elections in the group
+            group_elections = Election.objects.filter(election_group=election.election_group)
+            registrations_created = []
+            
+            for group_election in group_elections:
+                # Check if already registered for this specific election
+                if not VoterRegistration.objects.filter(
+                    election=group_election,
+                    user_id=primary_identifier
+                ).exists():
+                    registration = VoterRegistration.objects.create(
+                        election=group_election,
+                        election_group=election.election_group,
+                        user_id=primary_identifier,
+                        matric_number=matric_number
+                    )
+                    registrations_created.append({
+                        "election_title": group_election.title,
+                        "registration_id": registration.id
+                    })
+            
+            return Response(
+                {
+                    "detail": f"Successfully registered for {len(registrations_created)} elections in group '{election.election_group}'.",
+                    "election_group": election.election_group,
+                    "registrations": registrations_created
+                },
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            # Single election registration
+            registration = VoterRegistration.objects.create(
+                election=election,
+                user_id=primary_identifier,
+                matric_number=matric_number
+            )
+            
+            return Response(
+                {
+                    "detail": "Successfully registered for the election.",
+                    "election_title": election.title,
+                    "registration_id": registration.id
+                },
+                status=status.HTTP_201_CREATED
+            )
 
 
 class ElectionResultsAPIView(APIView):

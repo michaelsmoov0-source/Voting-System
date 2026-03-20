@@ -18,6 +18,7 @@ from .views import (
     MFADebugCodeAPIView,
     MFAVerifyLoginAPIView,
     RegisterAPIView,
+    VoterRegistrationAPIView,
 )
 
 urlpatterns = [
@@ -32,6 +33,7 @@ urlpatterns = [
     path("elections/create/", ElectionCreateAPIView.as_view(), name="election-create"),
     path("elections/<int:pk>/", ElectionDetailAdminAPIView.as_view(), name="election-detail-admin"),
     path("elections/<int:election_id>/results/", ElectionResultsAPIView.as_view(), name="election-results"),
+    path("elections/<int:election_id>/register/", VoterRegistrationAPIView.as_view(), name="election-register"),
     path("candidates/", CandidateListAPIView.as_view(), name="candidate-list"),
     path("candidates/create/", CandidateCreateAPIView.as_view(), name="candidate-create"),
     path("candidates/upload-photo/", CandidateImageUploadAPIView.as_view(), name="candidate-upload-photo"),
