@@ -1,6 +1,8 @@
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
 export function cn(...inputs) {
-  return twMerge(clsx(inputs));
+  // Simple className merger without external dependencies
+  return inputs
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
