@@ -78,8 +78,7 @@ class ElectionSerializer(serializers.ModelSerializer):
 class EncryptedVoteCreateSerializer(serializers.Serializer):
     election_id = serializers.IntegerField()
     encrypted_ballot = serializers.CharField()
-    user_id = serializers.CharField(max_length=120, required=False, allow_blank=True)
-    matric_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    username = serializers.CharField(max_length=120)  # Can be user ID, matric number, or any username
     election_password = serializers.CharField(required=False, allow_blank=True)
     is_anonymous = serializers.BooleanField(default=False)
 
@@ -93,27 +92,22 @@ class EncryptedVoteCreateSerializer(serializers.Serializer):
         if election.status != "open" or now < election.starts_at or now > election.ends_at:
             raise serializers.ValidationError("Election is not currently open for voting.")
         
-        # Get user identifier (user_id or matric_number)
-        user_id = attrs.get("user_id", "").strip()
-        matric_number = attrs.get("matric_number", "").strip()
+        username = attrs["username"].strip()
         
-        # At least one identifier is required
-        if not user_id and not matric_number:
-            raise serializers.ValidationError({"non_field_errors": ["Either User ID or Matric Number is required."]})
-        
-        # Use primary identifier for validation
-        primary_identifier = user_id or matric_number
+        # Username is required
+        if not username:
+            raise serializers.ValidationError({"username": ["Username is required."]})
         
         # Check if user is registered for this election
         if election.registration_starts_at and election.registration_ends_at:
             if not election.is_registration_open:
                 raise serializers.ValidationError("Registration period is closed for this election.")
             
-            if not election.is_user_registered(primary_identifier):
+            if not election.is_user_registered(username):
                 raise serializers.ValidationError("You are not registered for this election.")
         
         # Check voter filter pattern
-        if not election.user_can_vote(primary_identifier, matric_number):
+        if not election.user_can_vote(username):
             raise serializers.ValidationError("You are not eligible to vote in this election based on the voter filter criteria.")
         
         if election.max_votes is not None and Vote.objects.filter(election=election).count() >= election.max_votes:
@@ -121,13 +115,12 @@ class EncryptedVoteCreateSerializer(serializers.Serializer):
         if election.requires_password and not election.check_access_password(attrs.get("election_password", "")):
             raise serializers.ValidationError("Invalid election access password.")
 
-        voter_hash = hashlib.sha256(primary_identifier.strip().lower().encode("utf-8")).hexdigest()
+        voter_hash = hashlib.sha256(username.strip().lower().encode("utf-8")).hexdigest()
         if Vote.objects.filter(election=election, voter_hash=voter_hash).exists():
             raise serializers.ValidationError("This voter has already cast a vote for this election.")
 
         attrs["election"] = election
         attrs["voter_hash"] = voter_hash
-        attrs["primary_identifier"] = primary_identifier
         return attrs
 
 
@@ -140,16 +133,15 @@ class VoteReceiptSerializer(serializers.ModelSerializer):
 class VoterRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoterRegistration
-        fields = ["election", "election_group", "user_id", "matric_number"]
+        fields = ["election", "election_group", "username"]
         read_only_fields = ["registered_at"]
     
     def validate(self, attrs):
-        user_id = attrs.get("user_id", "").strip()
-        matric_number = attrs.get("matric_number", "").strip()
+        username = attrs.get("username", "").strip()
         
-        # At least one identifier is required
-        if not user_id and not matric_number:
-            raise serializers.ValidationError({"non_field_errors": ["Either User ID or Matric Number is required."]})
+        # Username is required
+        if not username:
+            raise serializers.ValidationError({"username": ["Username is required."]})
         
         return attrs
 
@@ -162,28 +154,22 @@ class ElectionResultSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.Serializer):
-    user_id = serializers.CharField(max_length=150)
-    matric_number = serializers.CharField(max_length=50)
+    username = serializers.CharField(max_length=150)  # Can be user ID, matric number, or any username
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(min_length=8, write_only=True)
     role = serializers.ChoiceField(choices=["voter", "admin"], default="voter")
     admin_invite_key = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate(self, attrs):
-        user_id = attrs.get("user_id", "").strip()
-        matric = attrs.get("matric_number", "").strip()
+        username = attrs.get("username", "").strip()
         
-        # At least one of user_id or matric_number is required
-        if not user_id and not matric:
-            raise serializers.ValidationError({"non_field_errors": ["Either User ID or Matric Number is required."]})
-        
-        # Use user_id as primary identifier if provided, otherwise use matric_number
-        primary_identifier = user_id or matric
+        # Username is required
+        if not username:
+            raise serializers.ValidationError({"username": ["Username is required."]})
         
         # Check if user already exists (case-insensitive)
-        if User.objects.filter(username__iexact=primary_identifier).exists():
-            field = "user_id" if user_id else "matric_number"
-            raise serializers.ValidationError({field: [f"User with this {'User ID' if user_id else 'Matric Number'} already exists."]})
+        if User.objects.filter(username__iexact=username).exists():
+            raise serializers.ValidationError({"username": ["User with this username already exists."]})
         
         if attrs["role"] == "admin":
             admin_invite_key = attrs.get("admin_invite_key", "").strip()
@@ -197,16 +183,14 @@ class RegisterSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"email": ["Email is required for admin registration."]})
         
         attrs["email"] = email
-        attrs["primary_identifier"] = primary_identifier
         return attrs
 
     def create(self, validated_data):
         role = validated_data.pop("role")
         validated_data.pop("admin_invite_key", None)
-        primary_identifier = validated_data.pop("primary_identifier")
         
         user = User.objects.create_user(
-            username=primary_identifier,
+            username=validated_data["username"],
             email=validated_data.get("email", ""),
             password=validated_data["password"],
         )
@@ -218,13 +202,11 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    user_id = serializers.CharField()
-    matric_number = serializers.CharField()
+    username = serializers.CharField()  # Can be user ID, matric number, or any username
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        # Try user_id first, then matric_number as username
-        username = attrs.get("user_id") or attrs["matric_number"]
+        username = attrs["username"]
         user = authenticate(username=username, password=attrs["password"])
         if not user:
             raise serializers.ValidationError("Invalid credentials.")

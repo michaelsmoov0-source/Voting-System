@@ -64,31 +64,30 @@ class Election(models.Model):
         now = timezone.now()
         return self.registration_starts_at <= now <= self.registration_ends_at
     
-    def user_can_vote(self, user_id: str, matric_number: str) -> bool:
+    def user_can_vote(self, username: str) -> bool:
         """Check if user can vote based on voter filter pattern"""
         if not self.voter_filter_pattern:
             return True  # No filter means everyone can vote
         
         pattern = self.voter_filter_pattern.upper()
-        user_id_upper = user_id.upper()
-        matric_upper = matric_number.upper()
+        username_upper = username.upper()
         
-        # Check if pattern exists in either user ID or matric number
-        return pattern in user_id_upper or pattern in matric_upper
+        # Check if pattern exists in username
+        return pattern in username_upper
     
-    def is_user_registered(self, user_id: str) -> bool:
+    def is_user_registered(self, username: str) -> bool:
         """Check if user is registered for this election or group"""
         if self.election_group:
             # Check if user is registered for any election in the same group
             return VoterRegistration.objects.filter(
                 election_group=self.election_group,
-                user_id=user_id
+                username=username
             ).exists()
         else:
             # Check specific election registration
             return VoterRegistration.objects.filter(
                 election=self,
-                user_id=user_id
+                username=username
             ).exists()
 
     def set_access_password(self, raw_password: str):
@@ -189,20 +188,19 @@ class VoterRegistration(models.Model):
     """Track which users are registered to vote in specific elections"""
     election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name="voter_registrations")
     election_group = models.CharField(max_length=100, blank=True)  # Store group for group registrations
-    user_id = models.CharField(max_length=120)
-    matric_number = models.CharField(max_length=50)
+    username = models.CharField(max_length=120)  # Can be user ID, matric number, or any username
     registered_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["election", "user_id"],
+                fields=["election", "username"],
                 name="unique_registration_per_user_per_election"
             )
         ]
     
     def __str__(self):
-        return f"{self.user_id} registered for {self.election.title}"
+        return f"{self.username} registered for {self.election.title}"
 
 
 class UserIP(models.Model):

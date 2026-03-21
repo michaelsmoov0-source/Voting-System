@@ -77,8 +77,7 @@ const VoterPage = () => {
   const [selectedElection, setSelectedElection] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState("");
-  const [userId, setUserId] = useState("");
-  const [matricNumber, setMatricNumber] = useState("");
+  const [username, setUsername] = useState("");
   const [electionPassword, setElectionPassword] = useState("");
   const [status, setStatus] = useState("");
   const [results, setResults] = useState(null);
@@ -180,8 +179,7 @@ const VoterPage = () => {
           publicKeyPem: selectedElectionData?.encryption_public_key,
           candidateId: Number(selectedCandidate),
         }),
-        user_id: userId,
-        matric_number: matricNumber,
+        username: username,
         election_password: electionPassword,
         is_anonymous: isAnonymous,
       });
@@ -279,22 +277,12 @@ const VoterPage = () => {
           </label>
 
           <label className="grid gap-2 text-sm font-medium text-slate-700">
-            User ID (optional)
+            Username
             <input
               className="rounded-lg border border-slate-300 px-3 py-2"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="Enter your user ID"
-            />
-          </label>
-
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
-            Matric Number (optional)
-            <input
-              className="rounded-lg border border-slate-300 px-3 py-2"
-              value={matricNumber}
-              onChange={(e) => setMatricNumber(e.target.value)}
-              placeholder="Enter your matric number"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username (User ID, Matric Number, or any username)"
             />
           </label>
 

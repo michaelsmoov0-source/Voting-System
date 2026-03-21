@@ -524,7 +524,7 @@ class CastVoteAPIView(APIView):
         voter_hash = serializer.validated_data["voter_hash"]
         encrypted_ballot = serializer.validated_data["encrypted_ballot"]
         is_anonymous = serializer.validated_data.get("is_anonymous", False)
-        primary_identifier = serializer.validated_data["primary_identifier"]
+        username = serializer.validated_data["username"]
 
         queue_encrypted_vote(election=election, voter_hash=voter_hash, encrypted_ballot=encrypted_ballot)
         flush_mixed_votes(election.id)
@@ -534,7 +534,7 @@ class CastVoteAPIView(APIView):
             # Update vote with anonymous preference and identifier
             vote.is_anonymous = is_anonymous
             if not is_anonymous:
-                vote.voter_identifier = primary_identifier
+                vote.voter_identifier = username
             else:
                 vote.voter_identifier = ""  # Clear identifier if anonymous
             vote.save(update_fields=["is_anonymous", "voter_identifier"])
@@ -556,11 +556,7 @@ class VoterRegistrationAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         
         election = serializer.validated_data["election"]
-        user_id = serializer.validated_data.get("user_id", "").strip()
-        matric_number = serializer.validated_data.get("matric_number", "").strip()
-        
-        # Use primary identifier
-        primary_identifier = user_id or matric_number
+        username = serializer.validated_data["username"].strip()
         
         # Check if registration period is open
         if election.registration_starts_at and election.registration_ends_at:
@@ -571,7 +567,7 @@ class VoterRegistrationAPIView(APIView):
                 )
         
         # Check voter filter pattern
-        if not election.user_can_vote(primary_identifier, matric_number):
+        if not election.user_can_vote(username):
             return Response(
                 {"detail": "You are not eligible to register for this election based on the voter filter criteria."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -587,13 +583,12 @@ class VoterRegistrationAPIView(APIView):
                 # Check if already registered for this specific election
                 if not VoterRegistration.objects.filter(
                     election=group_election,
-                    user_id=primary_identifier
+                    username=username
                 ).exists():
                     registration = VoterRegistration.objects.create(
                         election=group_election,
                         election_group=election.election_group,
-                        user_id=primary_identifier,
-                        matric_number=matric_number
+                        username=username
                     )
                     registrations_created.append({
                         "election_title": group_election.title,
@@ -612,8 +607,7 @@ class VoterRegistrationAPIView(APIView):
             # Single election registration
             registration = VoterRegistration.objects.create(
                 election=election,
-                user_id=primary_identifier,
-                matric_number=matric_number
+                username=username
             )
             
             return Response(
