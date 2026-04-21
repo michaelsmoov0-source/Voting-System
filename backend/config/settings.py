@@ -140,8 +140,8 @@ VERCEL="true"
 SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "candidate-images")
 CANDIDATE_RETENTION_DAYS = int(os.getenv("CANDIDATE_RETENTION_DAYS", "2"))
 MFA_CODE_INTERVAL_SECONDS = int(os.getenv("MFA_CODE_INTERVAL_SECONDS", "30"))
-MFA_PREAUTH_MAX_AGE_SECONDS = int(os.getenv("MFA_PREAUTH_MAX_AGE_SECONDS", "3600"))
-ADMIN_MFA_REVERIFY_HOURS = int(os.getenv("ADMIN_MFA_REVERIFY_HOURS", "48"))
+MFA_PREAUTH_MAX_AGE_SECONDS = int(os.getenv("MFA_PREAUTH_MAX_AGE_SECONDS", "345600"))  # 4 days = 4 * 24 * 60 * 60
+ADMIN_MFA_REVERIFY_HOURS = int(os.getenv("ADMIN_MFA_REVERIFY_HOURS", "0"))  # Require MFA every login
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "")

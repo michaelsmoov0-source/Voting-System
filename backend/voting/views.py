@@ -118,20 +118,7 @@ class LoginAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            if mfa_profile.last_verified_at and timezone.now() - mfa_profile.last_verified_at <= timedelta(
-                hours=settings.ADMIN_MFA_REVERIFY_HOURS
-            ):
-                token, _ = Token.objects.get_or_create(user=user)
-                return Response(
-                    {
-                        "token": token.key,
-                        "username": user.username,
-                        "is_admin": True,
-                        "mfa_status": "fresh",
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
+            # Always require MFA for admin users (no fresh status)
             preauth_token = signing.dumps({"user_id": user.id}, salt="admin-mfa", compress=True)
             return Response({"mfa_required": True, "preauth_token": preauth_token}, status=status.HTTP_200_OK)
 
@@ -437,6 +424,72 @@ class MFADebugCodeAPIView(APIView):
                 "debug_code_interval_seconds": settings.MFA_CODE_INTERVAL_SECONDS,
             }
         )
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class MFANewCodeAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = MFAVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        preauth_token = serializer.validated_data.get("preauth_token")
+        if not preauth_token:
+            return Response({"detail": "Preauth token required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Decode preauth token to get user
+            user_data = signing.loads(preauth_token, salt="admin-mfa", max_age=settings.MFA_PREAUTH_MAX_AGE_SECONDS)
+            user_id = user_data.get("user_id")
+            user = User.objects.get(id=user_id)
+            
+            if not user.is_staff:
+                return Response({"detail": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+                
+            mfa_profile = AdminMFA.objects.get(user=user, is_enabled=True)
+            
+            # Generate new secret and send email with current code
+            new_secret = pyotp.random_base32()
+            mfa_profile.secret = new_secret
+            mfa_profile.save(update_fields=["secret"])
+            
+            totp = _build_totp(new_secret)
+            current_code = totp.now()
+            
+            try:
+                send_mail(
+                    subject="Your New MFA Code - Secure Voting System",
+                    message=(
+                        f"Your new MFA code is: {current_code}\n\n"
+                        f"This code is valid for 4 days.\n"
+                        "If you didn't request this code, please contact administration immediately.\n"
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+                return Response(
+                    {"detail": "New MFA code sent to your email."},
+                    status=status.HTTP_200_OK,
+                )
+            except Exception as exc:
+                if settings.DEBUG:
+                    return Response(
+                        {
+                            "detail": f"Email send failed in DEBUG mode: {exc}. Your new MFA code is: {current_code}",
+                            "debug_current_code": current_code,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                return Response({"detail": f"Could not send MFA email: {exc}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except (signing.BadSignature, signing.SignatureExpired):
+            return Response({"detail": "Invalid or expired preauth token."}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
+        except AdminMFA.DoesNotExist:
+            return Response({"detail": "MFA not configured."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ElectionListAPIView(generics.ListAPIView):

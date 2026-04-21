@@ -5,6 +5,7 @@ import {
   loginUser,
   registerUser,
   reverifyAdminMFA,
+  requestNewMfaCode,
   setupAdminMFA,
   verifyAdminMFA,
 } from "../api/voting";
@@ -169,19 +170,27 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
     setGlobalLoading(true);
     
     try {
-      const data = await reverifyAdminMFA({ preauth_token: preauthToken });
-      
-      if (data.setup_required && data.setup_token) {
-        setSetupToken(data.setup_token);
-        setMode("mfa-setup");
+      if (reverificationRequired) {
+        // Handle reverification due to failed attempts
+        const data = await reverifyAdminMFA({ preauth_token: preauthToken });
+        
+        if (data.setup_required && data.setup_token) {
+          setSetupToken(data.setup_token);
+          setMode("mfa-setup");
+          setMfaCode("");
+          setDebugCode("");
+          setReverificationRequired(false);
+          setAttemptsRemaining(null);
+          setStatus(data.detail || "New MFA secret sent. Please complete setup again.");
+        }
+      } else {
+        // Handle request for new MFA code
+        const data = await requestNewMfaCode({ preauth_token: preauthToken });
+        setStatus(data.detail || "New MFA code sent to your email.");
         setMfaCode("");
-        setDebugCode("");
-        setReverificationRequired(false);
-        setAttemptsRemaining(null);
-        setStatus(data.detail || "New MFA secret sent. Please complete setup again.");
       }
     } catch (error) {
-      setStatus(extractErrorMessage(error, "Reverification failed."));
+      setStatus(extractErrorMessage(error, "Request failed."));
     } finally {
       setGlobalLoading(false);
     }
@@ -391,6 +400,18 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
             </form>
           )}
           
+          {/* Add re-authentication button for getting new MFA code */}
+          {!reverificationRequired && (
+            <div className="grid gap-3">
+              <button
+                className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-500"
+                onClick={() => setShowConfirmDialog(true)}
+              >
+                Request New MFA Code
+              </button>
+            </div>
+          )}
+          
           {reverificationRequired && (
             <div className="grid gap-3">
               <button
@@ -404,17 +425,21 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
 
           {showConfirmDialog && (
             <div className="rounded-lg border border-slate-300 bg-slate-50 p-4">
-              <h3 className="mb-2 font-semibold text-slate-800">Confirm Reverification</h3>
+              <h3 className="mb-2 font-semibold text-slate-800">
+                {reverificationRequired ? "Confirm Reverification" : "Request New MFA Code"}
+              </h3>
               <p className="mb-4 text-sm text-slate-600">
-                This will send a new MFA secret to your email and reset your current setup. 
-                You will need to configure MFA again. Continue?
+                {reverificationRequired 
+                  ? "Too many failed attempts. A new MFA secret must be sent to your email. You will need to configure MFA again. Continue?"
+                  : "This will send a new MFA code to your email. The current code will be invalidated. Continue?"
+                }
               </p>
               <div className="flex gap-2">
                 <button
                   className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500"
                   onClick={handleReverification}
                 >
-                  Yes, Send New Secret
+                  {reverificationRequired ? "Yes, Send New Secret" : "Yes, Send New Code"}
                 </button>
                 <button
                   className="rounded-lg bg-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-400"
