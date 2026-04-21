@@ -11,6 +11,7 @@ export const registerUser = async (payload) => (await api.post("/auth/register/"
 export const loginUser = async (payload) => (await api.post("/auth/login/", payload)).data;
 export const verifyAdminMFA = async (payload) => (await api.post("/auth/mfa/verify-login/", payload)).data;
 export const reverifyAdminMFA = async (payload) => (await api.post("/auth/mfa/reverify/", payload)).data;
+export const requestNewMfaCode = async (payload) => (await api.post("/auth/mfa/request-new-code/", payload)).data;
 export const setupAdminMFA = async (token) => (await api.post("/auth/mfa/setup/", {}, withAuthToken(token))).data;
 export const confirmAdminMFA = async (token, code) =>
   (await api.post("/auth/mfa/confirm/", { code }, withAuthToken(token))).data;

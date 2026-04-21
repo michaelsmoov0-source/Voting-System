@@ -28,10 +28,7 @@ class IsAdminUserOrAPIKey(BasePermission):
             if not profile.last_verified_at:
                 self.message = "Admin MFA verification required."
                 return False
-            elapsed_hours = (timezone.now() - profile.last_verified_at).total_seconds() / 3600.0
-            if elapsed_hours > settings.ADMIN_MFA_REVERIFY_HOURS:
-                self.message = "Admin MFA re-verification required (48-hour window expired)."
-                return False
+            # MFA must be verified for every admin session
             return True
         if settings.ADMIN_API_KEY and request.headers.get("X-Admin-Key") == settings.ADMIN_API_KEY:
             return True
