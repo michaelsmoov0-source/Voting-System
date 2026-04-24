@@ -308,25 +308,27 @@ class MFAReverificationAPIView(APIView):
             )
         except Exception as exc:
             if settings.DEBUG:
+                # Generate setup token for MFA setup
+                token, _ = Token.objects.get_or_create(user=mfa_profile.user)
                 return Response(
                     {
                         "detail": f"Email send failed in DEBUG mode: {exc}. Enter MFA secret from email before requesting debug code.",
                         "debug_otpauth_url": otpauth_url,
-                        "reverification_sent": True,
-                        "preauth_token": signing.dumps({"user_id": mfa_profile.user.id}, salt="admin-mfa", compress=True)
+                        "setup_required": True,
+                        "setup_token": token.key
                     },
                     status=status.HTTP_200_OK,
                 )
             return Response({"detail": f"Could not send MFA email: {exc}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Generate new preauth token for MFA verification
-        preauth_token = signing.dumps({"user_id": mfa_profile.user.id}, salt="admin-mfa", compress=True)
+        # Generate setup token for MFA setup
+        token, _ = Token.objects.get_or_create(user=mfa_profile.user)
         
         return Response(
             {
-                "detail": f"New MFA secret sent to your email. Please check your email and enter the new code.",
-                "reverification_sent": True,
-                "preauth_token": preauth_token
+                "detail": f"New MFA secret sent to your email. Please complete MFA setup again.",
+                "setup_required": True,
+                "setup_token": token.key
             },
             status=status.HTTP_200_OK,
         )
