@@ -477,6 +477,7 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
             value={mfaSecretInput}
             onChange={(e) => setMfaSecretInput(e.target.value)}
           />
+          
           <ButtonLoader 
             loading={isSetupLoading}
             loadingText="Fetching..."
