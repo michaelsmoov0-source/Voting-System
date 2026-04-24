@@ -170,33 +170,16 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
     setGlobalLoading(true);
     
     try {
-      if (reverificationRequired) {
-        // Handle reverification due to failed attempts
-        const data = await reverifyAdminMFA({ preauth_token: preauthToken });
-        
-        if (data.preauth_token) {
-          // New secret sent, go back to MFA verification with new preauth token
-          setPreauthToken(data.preauth_token);
-          setMfaCode("");
-          setDebugCode("");
-          setReverificationRequired(false);
-          setAttemptsRemaining(null);
-          setStatus(data.detail || "New MFA secret sent. Please check your email and enter the new code.");
-        } else if (data.setup_required && data.setup_token) {
-          // Fallback to setup if needed
-          setSetupToken(data.setup_token);
-          setMode("mfa-setup");
-          setMfaCode("");
-          setDebugCode("");
-          setReverificationRequired(false);
-          setAttemptsRemaining(null);
-          setStatus(data.detail || "New MFA secret sent. Please complete setup again.");
-        }
-      } else {
-        // Handle request for new MFA code
-        const data = await requestNewMfaCode({ preauth_token: preauthToken });
-        setStatus(data.detail || "New MFA code sent to your email.");
+      const data = await reverifyAdminMFA({ preauth_token: preauthToken });
+      
+      if (data.setup_required && data.setup_token) {
+        setSetupToken(data.setup_token);
+        setMode("mfa-setup");
         setMfaCode("");
+        setDebugCode("");
+        setReverificationRequired(false);
+        setAttemptsRemaining(null);
+        setStatus(data.detail || "New MFA secret sent. Please complete setup again.");
       }
     } catch (error) {
       setStatus(extractErrorMessage(error, "Request failed."));
