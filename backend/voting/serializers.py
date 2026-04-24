@@ -220,6 +220,10 @@ class MFAVerifySerializer(serializers.Serializer):
     })
 
 
+class MFAPreauthTokenSerializer(serializers.Serializer):
+    preauth_token = serializers.CharField()
+
+
 class MFASetupConfirmSerializer(serializers.Serializer):
     code = serializers.RegexField(regex=r"^\d{6}$", max_length=6, min_length=6, error_messages={
         "invalid": "Code must be exactly 6 digits.",

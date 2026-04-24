@@ -496,7 +496,7 @@ class MFAGetSetupTokenAPIView(APIView):
 
     def post(self, request):
         print(f"MFAGetSetupTokenAPIView called with data: {request.data}")
-        serializer = MFAVerifySerializer(data=request.data)
+        serializer = MFAPreauthTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         preauth_token = serializer.validated_data.get("preauth_token")
