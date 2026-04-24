@@ -490,6 +490,48 @@ class MFANewCodeAPIView(APIView):
             return Response({"detail": "MFA not configured."}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
+class MFAGetSetupTokenAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = MFAVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        preauth_token = serializer.validated_data.get("preauth_token")
+        if not preauth_token:
+            return Response({"detail": "Preauth token required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Decode preauth token to get user
+            user_data = signing.loads(preauth_token, salt="admin-mfa", max_age=settings.MFA_PREAUTH_MAX_AGE_SECONDS)
+            user_id = user_data.get("user_id")
+            user = User.objects.get(id=user_id)
+            
+            if not user.is_staff:
+                return Response({"detail": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+                
+            mfa_profile = AdminMFA.objects.get_or_create(user=user, defaults={"secret": pyotp.random_base32()})[0]
+            
+            # Generate setup token
+            token, _ = Token.objects.get_or_create(user=user)
+            
+            return Response(
+                {
+                    "detail": "Setup token generated. Proceed to MFA setup.",
+                    "setup_token": token.key,
+                },
+                status=status.HTTP_200_OK,
+            )
+                
+        except (signing.BadSignature, signing.SignatureExpired):
+            return Response({"detail": "Invalid or expired preauth token."}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
+        except AdminMFA.DoesNotExist:
+            return Response({"detail": "MFA not configured."}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ElectionListAPIView(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = ElectionSerializer
