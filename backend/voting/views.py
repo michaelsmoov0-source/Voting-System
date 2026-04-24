@@ -183,7 +183,19 @@ class MFAVerifyLoginAPIView(APIView):
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         totp = _build_totp(mfa_profile.secret)
-        if not totp.verify(serializer.validated_data["code"].strip(), valid_window=1):
+        code = serializer.validated_data["code"].strip()
+        print(f"MFA Verification attempt:")
+        print(f"  User: {mfa_profile.user.username}")
+        print(f"  IP: {client_ip}")
+        print(f"  Secret: {mfa_profile.secret}")
+        print(f"  Code provided: {code}")
+        print(f"  Current time: {timezone.now()}")
+        
+        # Get current valid codes for debugging
+        current_code = totp.now()
+        print(f"  Expected code: {current_code}")
+        
+        if not totp.verify(code, valid_window=1):
             # Increment failed attempt count
             failed_attempt.attempt_count += 1
             failed_attempt.last_attempt_at = timezone.now()
@@ -301,7 +313,7 @@ class MFAReverificationAPIView(APIView):
                         "detail": f"Email send failed in DEBUG mode: {exc}. Enter MFA secret from email before requesting debug code.",
                         "debug_otpauth_url": otpauth_url,
                         "reverification_sent": True,
-                        "setup_required": True
+                        "preauth_token": signing.dumps({"user_id": mfa_profile.user.id}, salt="admin-mfa", compress=True)
                     },
                     status=status.HTTP_200_OK,
                 )
