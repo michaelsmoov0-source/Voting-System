@@ -413,9 +413,14 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
             <div className="grid gap-3">
               <button
                 className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-500"
-                onClick={() => setShowConfirmDialog(true)}
+                onClick={() => {
+                  setMode("mfa-setup");
+                  setMfaCode("");
+                  setDebugCode("");
+                  setStatus("Go back to MFA setup to configure your authenticator app.");
+                }}
               >
-                Request New MFA Code
+                Go Back to MFA Setup
               </button>
             </div>
           )}
@@ -434,20 +439,17 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
           {showConfirmDialog && (
             <div className="rounded-lg border border-slate-300 bg-slate-50 p-4">
               <h3 className="mb-2 font-semibold text-slate-800">
-                {reverificationRequired ? "Confirm Reverification" : "Request New MFA Code"}
+                Confirm Reverification
               </h3>
               <p className="mb-4 text-sm text-slate-600">
-                {reverificationRequired 
-                  ? "Too many failed attempts. A new MFA secret must be sent to your email. You will need to configure MFA again. Continue?"
-                  : "This will send a new MFA code to your email. The current code will be invalidated. Continue?"
-                }
+                Too many failed attempts. A new MFA secret must be sent to your email. You will need to configure MFA again. Continue?
               </p>
               <div className="flex gap-2">
                 <button
                   className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500"
                   onClick={handleReverification}
                 >
-                  {reverificationRequired ? "Yes, Send New Secret" : "Yes, Send New Code"}
+                  Yes, Send New Secret
                 </button>
                 <button
                   className="rounded-lg bg-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-400"
