@@ -268,8 +268,7 @@ class MFAReverificationAPIView(APIView):
 
         # Generate new secret and reset MFA
         mfa_profile.secret = pyotp.random_base32()
-        mfa_profile.is_enabled = False  # Require reconfirmation
-        mfa_profile.save(update_fields=["secret", "is_enabled"])
+        mfa_profile.save(update_fields=["secret"])  # Keep MFA enabled for reverification
 
         # Reset failed attempts
         failed_attempt.attempt_count = 0
@@ -308,15 +307,14 @@ class MFAReverificationAPIView(APIView):
                 )
             return Response({"detail": f"Could not send MFA email: {exc}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Generate new setup token
-        token, _ = Token.objects.get_or_create(user=mfa_profile.user)
+        # Generate new preauth token for MFA verification
+        preauth_token = signing.dumps({"user_id": mfa_profile.user.id}, salt="admin-mfa", compress=True)
         
         return Response(
             {
-                "detail": f"New MFA secret sent to your email. Please complete setup again.",
+                "detail": f"New MFA secret sent to your email. Please check your email and enter the new code.",
                 "reverification_sent": True,
-                "setup_token": token.key,
-                "setup_required": True
+                "preauth_token": preauth_token
             },
             status=status.HTTP_200_OK,
         )
