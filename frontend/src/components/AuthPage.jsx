@@ -358,38 +358,38 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
 
       {mode === "mfa-verify" && (
         <div className="grid gap-3">
-          {reverificationRequired ? (
+          {reverificationRequired && (
             <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
               <strong>Reverification Required</strong><br />
               Too many failed attempts. A new MFA secret must be sent to your email.
             </div>
-          ) : (
-            <form className="grid gap-3" onSubmit={handleMfaVerify}>
-              <input
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                placeholder="6-digit MFA code"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                value={mfaCode}
-                onChange={(e) => setMfaCode(normalizeSixDigitCode(e.target.value))}
-                onPaste={handleCodePaste}
-              />
-              {attemptsRemaining !== null && attemptsRemaining < 4 && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {attemptsRemaining} attempts remaining
-                </div>
-              )}
-              <ButtonLoader 
-                loading={isMfaLoading}
-                loadingText="Verifying..."
-                type="submit"
-                className="w-full"
-              >
-                Verify MFA
-              </ButtonLoader>
-            </form>
           )}
+          
+          <form className="grid gap-3" onSubmit={handleMfaVerify}>
+            <input
+              className="rounded-lg border border-slate-300 px-3 py-2"
+              placeholder="6-digit MFA code"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={mfaCode}
+              onChange={(e) => setMfaCode(normalizeSixDigitCode(e.target.value))}
+              onPaste={handleCodePaste}
+            />
+            {attemptsRemaining !== null && attemptsRemaining < 4 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {attemptsRemaining} attempts remaining
+              </div>
+            )}
+            <ButtonLoader 
+              loading={isMfaLoading}
+              loadingText="Verifying..."
+              type="submit"
+              className="w-full"
+            >
+              Verify MFA
+            </ButtonLoader>
+          </form>
           
           {/* Add re-authentication button for getting new MFA code */}
           {!reverificationRequired && (
