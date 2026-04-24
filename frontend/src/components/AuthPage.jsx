@@ -415,10 +415,13 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
               <button
                 className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-500"
                 onClick={async () => {
+                  console.log("Go Back to MFA Setup clicked");
+                  console.log("preauthToken:", preauthToken);
                   if (preauthToken) {
                     setGlobalLoading(true);
                     try {
                       const data = await getSetupToken({ preauth_token: preauthToken });
+                      console.log("getSetupToken response:", data);
                       if (data.setup_token) {
                         setSetupToken(data.setup_token);
                         setMode("mfa-setup");
@@ -427,11 +430,13 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
                         setStatus(data.detail || "Setup token generated. Proceed to MFA setup.");
                       }
                     } catch (error) {
+                      console.error("getSetupToken error:", error);
                       setStatus(extractErrorMessage(error, "Failed to get setup token."));
                     } finally {
                       setGlobalLoading(false);
                     }
                   } else {
+                    console.log("No preauthToken available");
                     setStatus("No valid session found. Please login again.");
                   }
                 }}
