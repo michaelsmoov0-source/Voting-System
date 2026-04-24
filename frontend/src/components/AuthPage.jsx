@@ -384,7 +384,6 @@ const AuthPage = ({ onAuthenticated, notice = "" }) => {
                 loading={isMfaLoading}
                 loadingText="Verifying..."
                 type="submit"
-                disabled={reverificationRequired}
                 className="w-full"
               >
                 Verify MFA
