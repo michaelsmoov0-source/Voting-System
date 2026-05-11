@@ -3,47 +3,6 @@
 from django.db import migrations, models
 
 
-class Migration(migrations.Migration):
-
-    dependencies = [
-        ('voting', '0010_add_user_ip_encryption'),
-    ]
-
-    operations = [
-        # Add username field
-        migrations.AddField(
-            model_name='voterregistration',
-            name='username',
-            field=models.CharField(max_length=120),
-        ),
-        
-        # Data migration: populate username from user_id or matric_number
-        migrations.RunPython(
-            code='migrate_username_field',
-            reverse_code='reverse_migrate_username_field'
-        ),
-        
-        # Remove old fields
-        migrations.RemoveField(
-            model_name='voterregistration',
-            name='user_id',
-        ),
-        migrations.RemoveField(
-            model_name='voterregistration',
-            name='matric_number',
-        ),
-        
-        # Update unique constraint
-        migrations.AlterUniqueConstraint(
-            name='unique_registration_per_user_per_election',
-            constraint=models.UniqueConstraint(
-                fields=['election', 'username'],
-                name='unique_registration_per_user_per_election'
-            ),
-            model='voterregistration',
-        ),
-    ]
-
 def migrate_username_field(apps, schema_editor):
     """Populate username field from user_id or matric_number"""
     VoterRegistration = apps.get_model('voting', 'VoterRegistration')
@@ -55,3 +14,13 @@ def migrate_username_field(apps, schema_editor):
 def reverse_migrate_username_field(apps, schema_editor):
     """Reverse data migration - this would be more complex in practice"""
     pass
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('voting', '0010_add_user_ip_encryption'),
+    ]
+
+    operations = [
+    ]

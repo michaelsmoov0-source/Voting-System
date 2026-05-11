@@ -15,19 +15,9 @@ class Migration(migrations.Migration):
             name='election_group',
             field=models.CharField(blank=True, help_text='Optional: Group name for shared registration across multiple elections', max_length=100),
         ),
-        migrations.AlterField(
-            model_name='voterregistration',
-            name='candidate_id',
-            field=models.CharField(max_length=120),
-        ),
         migrations.AddField(
             model_name='voterregistration',
             name='election_group',
             field=models.CharField(blank=True, max_length=100),
-        ),
-        migrations.AlterUniqueConstraint(
-            name='unique_registration_per_user_per_election',
-            constraint=models.UniqueConstraint(fields=['election', 'candidate_id'], name='unique_registration_per_candidate_per_election'),
-            model='voterregistration',
         ),
     ]

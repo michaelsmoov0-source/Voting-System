@@ -217,7 +217,7 @@ LOGGING = {
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
-            "filename": os.getenv("LOG_FILE", "/tmp/django.log"),
+            "filename": os.getenv("LOG_FILE", os.path.join(BASE_DIR, "logs", "django.log")),
             "formatter": "verbose",
         },
         "console": {
@@ -228,7 +228,7 @@ LOGGING = {
         "security": {
             "level": "WARNING",
             "class": "logging.FileHandler",
-            "filename": os.getenv("SECURITY_LOG_FILE", "/tmp/security.log"),
+            "filename": os.getenv("SECURITY_LOG_FILE", os.path.join(BASE_DIR, "logs", "security.log")),
             "formatter": "verbose",
         },
     },
