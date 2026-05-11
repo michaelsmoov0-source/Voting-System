@@ -92,47 +92,40 @@ ASGI_APPLICATION = "config.asgi.application"
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 if DATABASE_URL:
-    # Use DATABASE_URL if available (preferred method)
-    try:
-        DATABASES = {
-            "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True)
-        }
-    except Exception as e:
-        # Fallback to individual env vars if DATABASE_URL parsing fails
-        print(f"Warning: Failed to parse DATABASE_URL: {e}")
-        DATABASE_URL = None
-
-if not DATABASE_URL:
-    # Always use PostgreSQL - no SQLite fallback
-    db_name = os.getenv("DB_NAME", "")
-    db_user = os.getenv("DB_USER", "")
-    db_password = os.getenv("DB_PASSWORD", "")
-    db_host = os.getenv("DB_HOST", "")
-    
-    if not all([db_name, db_user, db_password, db_host]):
-        raise ValueError("Missing required database environment variables. PostgreSQL is required.")
-    
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": db_name,
-            "USER": db_user,
-            "PASSWORD": db_password,
-            "HOST": db_host,
-            "PORT": os.getenv("DB_PORT", "5432"),
-            "OPTIONS": {
-                "sslmode": "require",
-                "MAX_CONNS": 20,
-                "MIN_CONNS": 5,
-                "connect_timeout": 60,
-                "server_side_binding": True,
-            },
-            "CONN_MAX_AGE": 600,  # 10 minutes
-            "ATOMIC_REQUESTS": True,
-        }
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True)
     }
+else:
+    # Production: Use PostgreSQL on Vercel, Development: Use PostgreSQL locally
+    if os.getenv("VERCEL"):
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.getenv("DB_NAME", ""),
+                "USER": os.getenv("DB_USER", ""),
+                "PASSWORD": os.getenv("DB_PASSWORD", ""),
+                "HOST": os.getenv("DB_HOST", ""),
+                "PORT": os.getenv("DB_PORT", "5432"),
+                "OPTIONS": {
+                    "sslmode": "require",
+                }
+            }
+        }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.getenv("DB_NAME", ""),
+                "USER": os.getenv("DB_USER", ""),
+                "PASSWORD": os.getenv("DB_PASSWORD", ""),
+                "HOST": os.getenv("DB_HOST", ""),
+                "PORT": os.getenv("DB_PORT", "5432"),
+                "OPTIONS": {
+                    "sslmode": "require",
+                }
+            }
+        }
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
