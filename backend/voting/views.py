@@ -24,6 +24,7 @@ from .serializers import (
     ElectionSerializer,
     EncryptedVoteCreateSerializer,
     LoginSerializer,
+    MFAPreauthTokenSerializer,
     MFASetupConfirmSerializer,
     MFAVerifySerializer,
     RegisterSerializer,

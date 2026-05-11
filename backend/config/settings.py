@@ -20,6 +20,12 @@ if os.getenv("VERCEL"):
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
     # For monorepo, we need to allow the same origin
     CORS_ALLOWED_ORIGINS = ["https://*.vercel.app", "http://localhost:3000", "http://localhost:5173"]
 else:
@@ -28,6 +34,12 @@ else:
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    SECURE_CONTENT_TYPE_NOSNIFF = False
+    SECURE_BROWSER_XSS_FILTER = False
+    X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 
@@ -40,18 +52,22 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "corsheaders",
     "voting",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "voting.middleware.SimpleCORSMiddleware",
+    "voting.middleware.RateLimitMiddleware",
+    "voting.middleware.SecurityLoggingMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -74,34 +90,49 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
+# Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 if DATABASE_URL:
+    # Use DATABASE_URL if available (preferred method)
+    try:
+        DATABASES = {
+            "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True)
+        }
+    except Exception as e:
+        # Fallback to individual env vars if DATABASE_URL parsing fails
+        print(f"Warning: Failed to parse DATABASE_URL: {e}")
+        DATABASE_URL = None
+
+if not DATABASE_URL:
+    # Always use PostgreSQL - no SQLite fallback
+    db_name = os.getenv("DB_NAME", "")
+    db_user = os.getenv("DB_USER", "")
+    db_password = os.getenv("DB_PASSWORD", "")
+    db_host = os.getenv("DB_HOST", "")
+    
+    if not all([db_name, db_user, db_password, db_host]):
+        raise ValueError("Missing required database environment variables. PostgreSQL is required.")
+    
     DATABASES = {
-        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True)
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": db_name,
+            "USER": db_user,
+            "PASSWORD": db_password,
+            "HOST": db_host,
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "OPTIONS": {
+                "sslmode": "require",
+                "MAX_CONNS": 20,
+                "MIN_CONNS": 5,
+                "connect_timeout": 60,
+                "server_side_binding": True,
+            },
+            "CONN_MAX_AGE": 600,  # 10 minutes
+            "ATOMIC_REQUESTS": True,
+        }
     }
-else:
-    # Production: Use PostgreSQL on Vercel, Development: Use SQLite locally
-    if os.getenv("VERCEL"):
-        DATABASES = {
-            "default": {
-                "ENGINE": "django.db.backends.postgresql",
-                "NAME": os.getenv("DB_NAME", ""),
-                "USER": os.getenv("DB_USER", ""),
-                "PASSWORD": os.getenv("DB_PASSWORD", ""),
-                "HOST": os.getenv("DB_HOST", ""),
-                "PORT": os.getenv("DB_PORT", "5432"),
-                "OPTIONS": {
-                    "sslmode": "require",
-                }
-            }
-        }
-    else:
-        DATABASES = {
-            "default": {
-                "ENGINE": "django.db.backends.sqlite3",
-                "NAME": BASE_DIR / "db.sqlite3",
-            }
-        }
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -120,6 +151,121 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Production caching configuration
+if os.getenv("VERCEL"):
+    # Production - Use Redis or Memcached if available, fallback to file-based caching
+    REDIS_URL = os.getenv("REDIS_URL", "")
+    if REDIS_URL:
+        CACHES = {
+            "default": {
+                "BACKEND": "django_redis.cache.RedisCache",
+                "LOCATION": REDIS_URL,
+                "OPTIONS": {
+                    "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                    "SOCKET_CONNECT_TIMEOUT": 5,
+                    "SOCKET_TIMEOUT": 5,
+                    "RETRY_ON_TIMEOUT": True,
+                    "MAX_CONNECTIONS": 50,
+                },
+                "KEY_PREFIX": "voting_system",
+                "TIMEOUT": 300,  # 5 minutes default
+            }
+        }
+    else:
+        # Fallback to file-based caching for production
+        CACHES = {
+            "default": {
+                "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+                "LOCATION": "/tmp/django_cache",
+                "TIMEOUT": 300,  # 5 minutes default
+                "OPTIONS": {
+                    "MAX_ENTRIES": 1000,
+                    "CULL_FREQUENCY": 3,
+                }
+            }
+        }
+else:
+    # Development - Use local memory caching
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "voting-system-cache",
+            "TIMEOUT": 300,  # 5 minutes default
+        }
+    }
+
+# Session configuration
+if os.getenv("VERCEL"):
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+    SESSION_CACHE_ALIAS = "default"
+    SESSION_COOKIE_AGE = 3600  # 1 hour
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = True
+else:
+    SESSION_ENGINE = "django.contrib.sessions.backends.db"
+    SESSION_COOKIE_AGE = 86400  # 24 hours
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = False
+
+# Production logging configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+        "json": {
+            "format": '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "module": "%(module)s", "message": "%(message)s"}',
+        },
+    },
+    "handlers": {
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.getenv("LOG_FILE", "/tmp/django.log"),
+            "formatter": "json" if os.getenv("VERCEL") else "verbose",
+        },
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "security": {
+            "level": "WARNING",
+            "class": "logging.FileHandler",
+            "filename": os.getenv("SECURITY_LOG_FILE", "/tmp/security.log"),
+            "formatter": "json",
+        },
+    },
+    "root": {
+        "handlers": ["console", "file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "voting": {
+            "handlers": ["console", "file", "security"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "security": {
+            "handlers": ["security"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
+
 # Election Results Encryption
 ENCRYPT_ELECTION_RESULTS = True
 
@@ -129,6 +275,9 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
+    "EXCEPTION_HANDLER": "voting.exceptions.custom_exception_handler",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
 }
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
