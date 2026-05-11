@@ -200,30 +200,25 @@ else:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SECURE = False
 
-# Import safe logging configuration
-try:
-    from voting.logging_config import get_safe_logging_config
-    LOGGING = get_safe_logging_config()
-except ImportError:
-    # Fallback logging configuration
-    LOGGING = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "verbose": {
-                "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-            },
-            "simple": {
-                "format": "%(levelname)s %(message)s",
-            },
+# Simple logging configuration to prevent [object Object] errors
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
         },
+        "simple": {
+            "format": "%(levelname)s %(message)s",
+        },
+    },
     "handlers": {
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
             "filename": os.getenv("LOG_FILE", "/tmp/django.log"),
-            "formatter": "json" if os.getenv("VERCEL") else "verbose",
+            "formatter": "verbose",
         },
         "console": {
             "level": "INFO",
@@ -234,7 +229,7 @@ except ImportError:
             "level": "WARNING",
             "class": "logging.FileHandler",
             "filename": os.getenv("SECURITY_LOG_FILE", "/tmp/security.log"),
-            "formatter": "json",
+            "formatter": "verbose",
         },
     },
     "root": {

@@ -1,4 +1,5 @@
 import logging
+import logging.config
 import json
 import os
 from datetime import datetime
@@ -37,12 +38,27 @@ class SafeStringFormatter(logging.Formatter):
     """Custom string formatter that handles objects safely"""
     
     def format(self, record):
-        # Ensure message is a string
-        if not isinstance(record.getMessage(), str):
-            record.msg = str(record.getMessage())
-        
-        # Use standard format with proper string conversion
-        return f"{record.levelname} {datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S')} {record.module if hasattr(record, 'module') else 'unknown'} {record.process} {record.thread} {record.getMessage()}"
+        try:
+            # Get message and ensure it's a string
+            message = record.getMessage()
+            if not isinstance(message, str):
+                try:
+                    message = str(message)
+                except Exception:
+                    message = f"[Object of type {type(record.msg).__name__}]"
+            
+            # Safely get module name
+            module = getattr(record, 'module', 'unknown')
+            if not isinstance(module, str):
+                module = str(module)
+            
+            # Format with safe string conversion
+            timestamp = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S')
+            return f"{record.levelname} {timestamp} {module} {record.process} {record.thread} {message}"
+            
+        except Exception as e:
+            # Ultimate fallback
+            return f"LOG_ERROR {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Unable to format log record: {str(e)}"
 
 
 def get_safe_logging_config():
