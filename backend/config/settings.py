@@ -200,23 +200,24 @@ else:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SECURE = False
 
-# Production logging configuration
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
-            "style": "{",
+# Import safe logging configuration
+try:
+    from voting.logging_config import get_safe_logging_config
+    LOGGING = get_safe_logging_config()
+except ImportError:
+    # Fallback logging configuration
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "simple": {
+                "format": "%(levelname)s %(message)s",
+            },
         },
-        "simple": {
-            "format": "{levelname} {message}",
-            "style": "{",
-        },
-        "json": {
-            "format": '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "module": "%(module)s", "message": "%(message)s"}',
-        },
-    },
     "handlers": {
         "file": {
             "level": "INFO",
